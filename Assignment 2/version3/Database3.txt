@@ -1,0 +1,149 @@
+public class Database3
+{
+    // maximum number of readers / writers to go in a row
+    // I chose 4, but you could set this to whatever you liked.
+    public static final int MAXINROW = 4;
+    
+    // reader (1) and writer (2)
+    public static final int READER = 1, WRITER = 2;
+ 
+    // A simple ring buffer is used to simulate a database 
+
+    // buffer capacity
+    public static final int SIZE = 5;
+    private Object[] buffer = new Object[SIZE];
+
+    // number of threads reading from database
+    private int numreaders = 0;
+
+    // database being written?
+    private boolean writing = false;
+    
+    // number of writers waiting
+    private int numwriterswaiting = 0;
+    
+    // number of readers waiting
+    private int numreaderswaiting = 0;
+    
+    // number of readers in a row
+    private int numReadersRow = 0;
+    
+    // number of writers in a row
+    private int numWritersRow = 0;
+    
+    // last thread to access db (READER = 1; WRITER = 2)
+    private int lastThread = READER; 
+    
+    // initializes the database
+    public Database3() 
+    {
+        for(int i=0; i<SIZE; i++) {
+            buffer[i] = new Integer(i);
+        }
+    }
+
+    // a thread calls this method when it wants to start
+    // reading from the database.  When this method returns,
+    // the thread has access to the database.  Note that any number
+    // of readers may access the database at the same time.
+    // The thread must call endRead when it has finished
+    // to allow other threads to access the database.
+    public synchronized void startRead()
+    {
+        numreaderswaiting++; // a reader is now waiting
+        
+        // wait until database is available (no thread can be writing,
+        // or waiting to write if we've had fewer than MAXINROW writers,
+        // or if we've had MAXINROW readers and there are writers waiting)
+        while (writing || 
+              (numwriterswaiting>0&&lastThread==WRITER&&numWritersRow<MAXINROW) ||
+              (lastThread==READER&&numReadersRow==MAXINROW&&numwriterswaiting>0) ) {
+            try { 
+                wait();
+            } catch (InterruptedException e) {
+                System.err.println(e);
+            }
+        }
+        
+        numreaderswaiting--; // reader no longer waiting
+        
+        if (lastThread==READER) numReadersRow++; // another reader 
+        else {
+            lastThread = READER; // first reader in a row
+            numWritersRow=0; // no writers in a row
+            numReadersRow=1; // one reader in a row
+        }
+        
+        // we're reading from the database
+        numreaders++; 
+    }
+
+    // a thread calls this method when it has finished
+    // reading from the database.  The thread passes in
+    // an index and the corresponding object is returned.
+    public synchronized Object endRead(int i)
+    {
+        // ensure i is in correct range (use 0 if not)
+        if (i<0||i>SIZE) i=0;
+
+        // we're done with the database, so decrement number of readers
+        numreaders--; 
+
+        // let other threads know that we are done
+        if (numreaders==0)
+            notifyAll();
+
+        // returns the ith element of the database
+        return buffer[i];
+    }
+
+    // a thread calls this method when it wants to start
+    // writing to the database.  When this method returns,
+    // the thread has exclusive access to the database.
+    // The thread must call endWrite when it has finished
+    // to allow other threads to access the database.
+    public synchronized void startWrite()
+    {
+        numwriterswaiting++; // we have a write thread
+        
+        // wait until database is available (no thread can be reading or writing, or if we've had MAXINROW
+        // writers and there are readers waiting)
+        while (writing||numreaders>0||
+              (numreaderswaiting>0&&lastThread==WRITER&&numWritersRow==MAXINROW) ) {
+            try { 
+                wait();
+            } catch (InterruptedException e) {
+                System.err.println(e);
+            }
+        }
+        
+        numwriterswaiting--; // this writer is no longer waiting
+        
+        if (lastThread==WRITER) numWritersRow++; // another writer
+        else {
+            lastThread = WRITER; // first writer in a row
+            numWritersRow=1; // first writer
+            numReadersRow=0; // no readers in a row
+        }
+        
+        // we're using the database
+        writing = true;
+    }
+    
+    // a thread calls this method when it has finished
+    // writing to the database so that other threads
+    // can access the database.  The thread passes
+    // in an index and object that will be changed.
+    public synchronized void endWrite(int i, Object o)
+    {
+        // set the ith item of the buffer to o
+        if (i<0 || i>SIZE) i=0;
+        buffer[i]=o;
+
+        // we're done with the database
+        writing = false;
+
+        // let other threads know that the database is available
+        notifyAll();
+    }
+}

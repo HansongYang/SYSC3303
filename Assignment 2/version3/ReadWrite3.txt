@@ -1,0 +1,22 @@
+public class ReadWrite3
+{
+    public static void main(String[] args)
+    {
+        Thread readA, readB, writeA, writeB;
+        Database3 buffer;
+
+        buffer = new Database3(); 
+
+        // Create the reader and writer threads, passing each thread
+        // a reference to the shared Database object.
+        readA = new Thread(new Reader3(buffer),"ReaderA");
+        writeA = new Thread(new Writer3(buffer,10),"WriterA");
+        readB = new Thread(new Reader3(buffer),"ReaderB");
+        writeB = new Thread(new Writer3(buffer,100),"WriterB");
+        readA.start();
+        writeA.start();
+        readB.start();
+        writeB.start();
+        System.out.println("Two reader and two writer threads started.");
+    }
+}

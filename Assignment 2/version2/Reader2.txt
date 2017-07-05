@@ -1,0 +1,31 @@
+class Reader2 implements Runnable
+{
+    private Database2 buffer;
+    
+    public Reader2(Database2 buf)
+    {
+        buffer = buf;
+    }
+
+    public void run()
+    {
+        Object item;
+
+        // read 10 times sleeping during / after each request to simulate time passing
+        for(int i = 0; i < 10; i++) { 
+            buffer.startRead();
+
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {}
+
+            item = buffer.endRead(i%5);
+
+            System.out.println(Thread.currentThread().getName() + " read " + item);
+
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException e) {}
+        }
+    }
+}

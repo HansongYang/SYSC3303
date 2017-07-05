@@ -1,0 +1,34 @@
+class Writer3 implements Runnable
+{
+    private Database3 buffer;
+    private int offset; // offset used in run
+    
+    public Writer3(Database3 buf, int i)
+    {
+        buffer = buf;
+        offset = i;
+    }
+
+    public void run()
+    {
+        Object item;
+
+        // write 10 times sleeping during / after each request to simulate time passing
+        for(int i = 0; i < 10; i++) { 
+            buffer.startWrite();
+
+            try {
+                Thread.sleep(300);
+            } catch (InterruptedException e) {}
+
+            item = new Integer(i+offset);
+            buffer.endWrite(i%5,item);
+
+            System.out.println(Thread.currentThread().getName() + " wrote " + item);
+
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {}
+        }
+    }
+}

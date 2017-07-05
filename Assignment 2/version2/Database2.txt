@@ -1,0 +1,107 @@
+public class Database2
+{  
+    // A simple ring buffer is used to simulate a database 
+
+    // buffer capacity
+    public static final int SIZE = 5;
+    private Object[] buffer = new Object[SIZE];
+
+    // number of threads reading from database
+    private int numreaders = 0;
+
+    // database being written?
+    private boolean writing = false;
+    
+    // number of writers waiting
+    private int numwriterswaiting = 0;
+
+    // initializes the database
+    public Database2() 
+    {
+        for(int i=0; i<SIZE; i++) {
+            buffer[i] = new Integer(i);
+        }
+    }
+
+    // a thread calls this method when it wants to start
+    // reading from the database.  When this method returns,
+    // the thread has access to the database.  Note that any number
+    // of readers may access the database at the same time.
+    // The thread must call endRead when it has finished
+    // to allow other threads to access the database.
+    public synchronized void startRead()
+    {
+        // wait until database is available (no thread can be writing
+        // or waiting to write)
+        while (writing || numwriterswaiting>0) {
+            try { 
+                wait();
+            } catch (InterruptedException e) {
+                System.err.println(e);
+            }
+        }
+        
+        // we're reading from the database
+        numreaders++; 
+    }
+
+    // a thread calls this method when it has finished
+    // reading from the database.  The thread passes in
+    // an index and the corresponding object is returned.
+    public synchronized Object endRead(int i)
+    {
+        // ensure i is in correct range (use 0 if not)
+        if (i<0||i>SIZE) i=0;
+
+        // we're done with the database, so decrement number of readers
+        numreaders--; 
+
+        // let other threads know that we are done
+        if (numreaders==0)
+            notifyAll();
+
+        // returns the ith element of the database
+        return buffer[i];
+    }
+
+    // a thread calls this method when it wants to start
+    // writing to the database.  When this method returns,
+    // the thread has exclusive access to the database.
+    // The thread must call endWrite when it has finished
+    // to allow other threads to access the database.
+    public synchronized void startWrite()
+    {
+        numwriterswaiting++; // we have a write thread
+        
+        // wait until database is available (no thread can be reading or writing)
+        while (writing||numreaders>0) {
+            try { 
+                wait();
+            } catch (InterruptedException e) {
+                System.err.println(e);
+            }
+        }
+        
+        numwriterswaiting--; // this writer is no longer waiting
+        
+        // we're using the database
+        writing = true;
+    }
+    
+    // a thread calls this method when it has finished
+    // writing to the database so that other threads
+    // can access the database.  The thread passes
+    // in an index and object that will be changed.
+    public synchronized void endWrite(int i, Object o)
+    {
+        // set the ith item of the buffer to o
+        if (i<0 || i>SIZE) i=0;
+        buffer[i]=o;
+
+        // we're done with the database
+        writing = false;
+
+        // let other threads know that the database is available
+        notifyAll();
+    }
+}
